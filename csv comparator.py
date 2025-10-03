@@ -3,18 +3,28 @@ import sys
 
 def get_csv_columns(filepath):
     """Extract column headers from a CSV file."""
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            reader = csv.reader(f)
-            headers = next(reader)
-            # Strip whitespace from headers
-            return [h.strip() for h in headers]
-    except FileNotFoundError:
-        print(f"Error: File '{filepath}' not found.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error reading '{filepath}': {e}")
-        sys.exit(1)
+    encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'utf-16']
+    
+    for encoding in encodings:
+        try:
+            with open(filepath, 'r', encoding=encoding) as f:
+                reader = csv.reader(f)
+                headers = next(reader)
+                # Strip whitespace from headers
+                print(f"Successfully read '{filepath}' with {encoding} encoding")
+                return [h.strip() for h in headers]
+        except UnicodeDecodeError:
+            continue
+        except FileNotFoundError:
+            print(f"Error: File '{filepath}' not found.")
+            sys.exit(1)
+        except Exception as e:
+            if encoding == encodings[-1]:  # Last encoding attempt
+                print(f"Error reading '{filepath}': {e}")
+                sys.exit(1)
+    
+    print(f"Error: Could not read '{filepath}' with any supported encoding.")
+    sys.exit(1)
 
 def compare_columns(api_file, frontend_file):
     """Compare columns between API data and frontend table."""
