@@ -7,18 +7,28 @@ from openpyxl.utils import get_column_letter
 
 def get_csv_data(filepath):
     """Extract headers and all rows from CSV file."""
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            reader = csv.reader(f)
-            headers = [h.strip() for h in next(reader)]
-            rows = list(reader)
-            return headers, rows
-    except FileNotFoundError:
-        print(f"Error: File '{filepath}' not found.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error reading '{filepath}': {e}")
-        sys.exit(1)
+    encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'utf-16']
+    
+    for encoding in encodings:
+        try:
+            with open(filepath, 'r', encoding=encoding) as f:
+                reader = csv.reader(f)
+                headers = [h.strip() for h in next(reader)]
+                rows = list(reader)
+                print(f"Successfully read '{filepath}' with {encoding} encoding")
+                return headers, rows
+        except UnicodeDecodeError:
+            continue
+        except FileNotFoundError:
+            print(f"Error: File '{filepath}' not found.")
+            sys.exit(1)
+        except Exception as e:
+            if encoding == encodings[-1]:  # Last encoding attempt
+                print(f"Error reading '{filepath}': {e}")
+                sys.exit(1)
+    
+    print(f"Error: Could not read '{filepath}' with any supported encoding.")
+    sys.exit(1)
 
 def auto_detect_key_column(headers):
     """Try to auto-detect common ID column names."""
