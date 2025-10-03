@@ -1102,7 +1102,7 @@ Solution: Close Excel file if it's open
 Error: "Encoding error"
 Solution: Script tries multiple encodings automatically
 
-TERMINOLOGY FOR YOUR BOSS:
+TERMINOLOGY
 ==========================
 
 Data Validation: Checking if API data matches expected standards (PROD)
