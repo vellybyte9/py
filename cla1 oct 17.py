@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 from pathlib import Path
-import chardet
 import sys
 from collections import defaultdict
 
@@ -12,12 +11,6 @@ class DRPlanAnalyzer:
         self.ci_type_column = None
         self.valid_ci_types = ['AIX Server', 'Windows Server', 'Unix Server', 'Linux Server', 
                                'Server', 'Database', 'Application Server', 'Web Server']
-        
-    def detect_encoding(self, file_path):
-        """Detect file encoding for CSV files"""
-        with open(file_path, 'rb') as f:
-            result = chardet.detect(f.read(100000))
-        return result['encoding']
     
     def load_data(self):
         """Load Excel or CSV file with proper encoding detection"""
@@ -40,20 +33,19 @@ class DRPlanAnalyzer:
                 self.data = pd.concat(all_data, ignore_index=True)
                 
             elif file_ext == '.csv':
-                # Detect encoding
-                encoding = self.detect_encoding(self.file_path)
-                print(f"Detected encoding: {encoding}")
-                
-                # Try different encodings if detection fails
-                encodings_to_try = [encoding, 'utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+                # Try common encodings in order
+                encodings_to_try = ['utf-8', 'utf-8-sig', 'latin-1', 'iso-8859-1', 'cp1252', 'windows-1252']
                 
                 for enc in encodings_to_try:
                     try:
                         self.data = pd.read_csv(self.file_path, encoding=enc)
-                        print(f"Successfully loaded with {enc} encoding")
+                        print(f"✓ Successfully loaded CSV with {enc} encoding")
                         break
+                    except (UnicodeDecodeError, UnicodeError):
+                        print(f"✗ Failed with {enc} encoding, trying next...")
+                        continue
                     except Exception as e:
-                        print(f"Failed with {enc}: {str(e)}")
+                        print(f"✗ Error with {enc}: {str(e)}")
                         continue
             else:
                 raise ValueError(f"Unsupported file format: {file_ext}")
