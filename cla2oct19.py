@@ -283,6 +283,47 @@ class DRPlanAnalyzer:
         
         return df_results
     
+    def analysis_6_same_serial_different_type(self):
+        """Analysis 6: Devices with same serial number but different types (Data Quality Issue)"""
+        print("\n=== Analysis 6: Same Serial Different Type (Data Quality Issue) ===")
+        
+        if 'serial_number' not in self.data.columns:
+            print("Warning: Serial number column not found. Skipping analysis 6.")
+            return pd.DataFrame()
+        
+        results = []
+        
+        # Filter out records without serial numbers
+        data_with_serial = self.data[self.data['serial_number'].notna() & (self.data['serial_number'] != '')].copy()
+        
+        for plan in data_with_serial['plan'].unique():
+            plan_data = data_with_serial[data_with_serial['plan'] == plan].copy()
+            
+            # Group by serial number and check if multiple types exist
+            for serial, group in plan_data.groupby('serial_number'):
+                unique_types = group['type'].nunique()
+                
+                if unique_types > 1:
+                    # Same serial but different types - data quality issue!
+                    types_list = group['type'].unique().tolist()
+                    
+                    for idx, row in group.iterrows():
+                        results.append({
+                            'Plan': plan,
+                            'Serial Number': serial,
+                            'Device Name': row['name'],
+                            'Actual Device Name': row.get('actual_device_name', ''),
+                            'Type': row.get('type', ''),
+                            'All Types for Serial': ', '.join(map(str, types_list)),
+                            'Type Count': unique_types,
+                            'Manual Entry': row.get('manual_entry', ''),
+                            'Environment': row.get('environment', ''),
+                            'Issue': 'CRITICAL: Same serial number assigned to different CI types',
+                            'Explanation': 'This explains discrepancy between Analysis 2 and 3'
+                        })
+        
+        return pd.DataFrame(results)
+    
     def run_all_analyses(self):
         """Run all analyses and save to Excel"""
         print(f"\nStarting analysis for file: {self.file_path}")
@@ -295,6 +336,7 @@ class DRPlanAnalyzer:
         df_analysis3 = self.analysis_3_future_serial_duplicates()
         df_analysis4 = self.analysis_4_manual_non_production()
         df_analysis5 = self.analysis_5_post_fix_duplicates_summary()
+        df_analysis6 = self.analysis_6_same_serial_different_type()
         
         # Generate output file path
         input_path = Path(self.file_path)
@@ -310,21 +352,32 @@ class DRPlanAnalyzer:
                     'Analysis 2: Serial/Type Duplicates',
                     'Analysis 3: Future Serial Duplicates',
                     'Analysis 4: Manual Non-Prod Entries',
-                    'Analysis 5: Post-Fix Summary'
+                    'Analysis 5: Post-Fix Summary',
+                    'Analysis 6: Same Serial Different Type'
                 ],
                 'Record Count': [
                     len(df_analysis1),
                     len(df_analysis2),
                     len(df_analysis3),
                     len(df_analysis4),
-                    len(df_analysis5)
+                    len(df_analysis5),
+                    len(df_analysis6)
                 ],
                 'Sheet Name': [
                     '1_NameType_Duplicates',
                     '2_SerialType_Duplicates',
                     '3_Future_Serial_Dups',
                     '4_Manual_NonProd',
-                    '5_PostFix_Summary'
+                    '5_PostFix_Summary',
+                    '6_Serial_TypeMismatch'
+                ],
+                'Description': [
+                    'Duplicates based on device name and type',
+                    'Duplicates based on serial number and type',
+                    'Duplicates that will remain after name fix (by serial only)',
+                    'Manual entries in non-production environments',
+                    'Summary of plans needing post-fix cleanup',
+                    'Same serial with different types (explains Analysis 2 vs 3 gap)'
                 ]
             }
             pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
@@ -344,6 +397,9 @@ class DRPlanAnalyzer:
             
             if not df_analysis5.empty:
                 df_analysis5.to_excel(writer, sheet_name='5_PostFix_Summary', index=False)
+            
+            if not df_analysis6.empty:
+                df_analysis6.to_excel(writer, sheet_name='6_Serial_TypeMismatch', index=False)
         
         print(f"\n{'='*60}")
         print(f"Analysis complete! Results saved to:")
@@ -357,6 +413,15 @@ class DRPlanAnalyzer:
         print(f"  Analysis 3 - Future Serial Duplicates: {len(df_analysis3)} records will still be duplicates")
         print(f"  Analysis 4 - Manual Non-Prod: {len(df_analysis4)} manual entries in non-production")
         print(f"  Analysis 5 - Post-Fix Summary: {len(df_analysis5)} plans will need cleanup after fix")
+        print(f"  Analysis 6 - Same Serial Different Type: {len(df_analysis6)} data quality issues")
+        
+        # Highlight the discrepancy explanation
+        if len(df_analysis3) != len(df_analysis2):
+            diff = abs(len(df_analysis3) - len(df_analysis2))
+            print(f"\n⚠️  DISCREPANCY ALERT:")
+            print(f"  Analysis 2 vs 3 difference: {diff} records")
+            print(f"  Check Analysis 6 - likely caused by same serial having different types")
+            print(f"  This is a critical data quality issue that needs resolution!")
         
 
 def main():
